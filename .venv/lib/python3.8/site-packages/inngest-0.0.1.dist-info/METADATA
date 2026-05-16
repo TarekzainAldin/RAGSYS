@@ -1,0 +1,37 @@
+Metadata-Version: 2.1
+Name: inngest
+Version: 0.0.1
+Summary: Inngest Python SDK
+Home-page: https://github.com/inngest/inngest-python/
+Author: Inngest, inc.
+Author-email: eng@inngest.com
+License: UNKNOWN
+Keywords: inngest
+Platform: UNKNOWN
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Description-Content-Type: text/markdown
+Requires-Dist: requests[security] (>=2.0.0) ; python_version<"3.0"
+Requires-Dist: requests (>=2.0.0) ; python_version>="3.0"
+
+# inngest-python
+
+
+## Usage
+
+```python
+from inngest import InngestClient
+
+client = InngestClient(inngest_key="your-key-here")
+event = Event(name="testing.event", data={ "favorites": ["milk", "tea", "eggs"] })
+
+client.send(event)
+```
+
+
