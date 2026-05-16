@@ -4,4 +4,3 @@ from dotenv import load_dotenv
 import os   
 
 app = FastAPI()
-print ("Hello World")
