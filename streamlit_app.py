@@ -1,152 +1,188 @@
-# pylint: skip-file
-# type: ignore
-import asyncio
+import streamlit as st
+import requests
 from pathlib import Path
 import time
-import streamlit as st
-import inngest
 from dotenv import load_dotenv
-import os
-import requests
-import logging
-import nest_asyncio
-
-# تطبيق nest_asyncio لحل مشكلة event loop
-nest_asyncio.apply()
+import json
 
 load_dotenv()
 
 st.set_page_config(page_title="RAG Ingest PDF", page_icon="📄", layout="centered")
 
-logger = logging.getLogger("streamlit_app")
+# عنوان الخدمات
+INNGEST_URL = "http://localhost:8288/api/events"
+FASTAPI_URL = "http://localhost:8000"
 
-@st.cache_resource
-def get_inngest_client() -> inngest.Inngest:
-    return inngest.Inngest(
-        app_id="rag_app", 
-        is_production=False,
-        logger=logger
-    )
+# تخزين الإجابات في session state
+if 'answers' not in st.session_state:
+    st.session_state.answers = []
+if 'last_question' not in st.session_state:
+    st.session_state.last_question = ""
 
 def save_uploaded_pdf(file) -> Path:
+    """حفظ ملف PDF مرفوع"""
     uploads_dir = Path("uploads")
     uploads_dir.mkdir(parents=True, exist_ok=True)
     file_path = uploads_dir / file.name
-    file_bytes = file.getbuffer()
-    file_path.write_bytes(file_bytes)
+    file_path.write_bytes(file.getbuffer())
     return file_path
 
-async def send_rag_ingest_event_async(pdf_path: Path) -> str:
-    client = get_inngest_client()
-    result = await client.send(
-        inngest.Event(
-            name="rag/ingest_pdf",
-            data={
-                "pdf_path": str(pdf_path.resolve()),
-                "source_id": pdf_path.name,
+def send_rag_ingest_event(pdf_path: Path) -> tuple[bool, str]:
+    """إرسال حدث ingest إلى Inngest"""
+    try:
+        response = requests.post(
+            INNGEST_URL,
+            json={
+                "name": "rag/ingest_pdf",
+                "data": {
+                    "pdf_path": str(pdf_path.resolve()),
+                    "source_id": pdf_path.name,
+                }
             },
+            timeout=10
         )
-    )
-    return result[0] if isinstance(result, list) else getattr(result, "id", None)
+        if response.status_code in [200, 201, 202]:
+            return True, "تم الإرسال بنجاح"
+        else:
+            return False, f"خطأ {response.status_code}"
+    except Exception as e:
+        return False, str(e)
 
-def send_rag_ingest_event(pdf_path: Path) -> str:
-    return asyncio.run(send_rag_ingest_event_async(pdf_path))
+def send_rag_query_event(question: str, top_k: int) -> tuple[bool, str, dict]:
+    """إرسال حدث استعلام إلى Inngest وجلب الإجابة"""
+    try:
+        # محاولة الحصول على إجابة مباشرة من FastAPI أولاً
+        response = requests.post(
+            f"{FASTAPI_URL}/query",
+            json={"question": question, "top_k": top_k},
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            return True, "تم الحصول على الإجابة", data
+        else:
+            # إذا فشل، أرسل إلى Inngest
+            response = requests.post(
+                INNGEST_URL,
+                json={
+                    "name": "rag/query_pdf_ai",
+                    "data": {
+                        "question": question,
+                        "top_k": top_k,
+                    }
+                },
+                timeout=10
+            )
+            if response.status_code in [200, 201, 202]:
+                return True, "تم إرسال السؤال (المعالجة في الخلفية)", {"answer": "جاري المعالجة...", "sources": []}
+            else:
+                return False, f"خطأ {response.status_code}", {}
+                
+    except Exception as e:
+        return False, str(e), {}
 
-st.title("Upload a PDF to Ingest")
+def get_direct_answer(question: str, top_k: int = 5) -> dict:
+    """الحصول على إجابة مباشرة من FastAPI"""
+    try:
+        response = requests.post(
+            f"{FASTAPI_URL}/query",
+            json={"question": question, "top_k": top_k},
+            timeout=30
+        )
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return {"answer": "لم يتم الحصول على إجابة", "sources": []}
+    except:
+        return {"answer": "لا يمكن الاتصال بالخادم", "sources": []}
+
+# ============ واجهة المستخدم ============
+
+st.title("📄 Upload a PDF to Ingest")
+
 uploaded = st.file_uploader("Choose a PDF", type=["pdf"], accept_multiple_files=False)
 
 if uploaded is not None:
     with st.spinner("Uploading and triggering ingestion..."):
         path = save_uploaded_pdf(uploaded)
-        try:
-            event_id = send_rag_ingest_event(path)
-            time.sleep(0.3)
-            st.success(f"✅ Triggered ingestion for: {path.name}")
-            if event_id:
-                st.caption(f"Event ID: {event_id}")
-        except Exception as e:
-            st.error(f"❌ Error: {e}")
+        success, message = send_rag_ingest_event(path)
+        time.sleep(0.3)
+    
+    if success:
+        st.success(f"✅ Triggered ingestion for: {path.name}")
+    else:
+        st.error(f"❌ {message}")
+    
     st.caption("You can upload another PDF if you like.")
 
 st.divider()
-st.title("Ask a question about your PDFs")
 
-async def send_rag_query_event_async(question: str, top_k: int) -> str:
-    client = get_inngest_client()
-    result = await client.send(
-        inngest.Event(
-            name="rag/query_pdf_ai",
-            data={
-                "question": question,
-                "top_k": top_k,
-            },
-        )
-    )
-    return result[0] if isinstance(result, list) else getattr(result, "id", None)
+st.title("💬 Ask a question about your PDFs")
 
-def send_rag_query_event(question: str, top_k: int) -> str:
-    return asyncio.run(send_rag_query_event_async(question, top_k))
-
-def _inngest_api_base() -> str:
-    return os.getenv("INNGEST_API_BASE", "http://127.0.0.1:8288/v1")
-
-def fetch_runs(event_id: str) -> list[dict]:
-    url = f"{_inngest_api_base()}/events/{event_id}/runs"
-    resp = requests.get(url)
-    resp.raise_for_status()
-    data = resp.json()
-    return data.get("data", [])
-
-def wait_for_run_output(event_id: str, timeout_s: float = 120.0, poll_interval_s: float = 0.5) -> dict:
-    if not event_id:
-        raise ValueError("event_id is required")
-    
-    start = time.time()
-    last_status = None
-    while True:
-        runs = fetch_runs(event_id)
-        if runs:
-            run = runs[0]
-            status = run.get("status")
-            last_status = status or last_status
-            if status in ("Completed", "Succeeded", "Success", "Finished"):
-                output = run.get("output") or {}
-                if isinstance(output, str):
-                    import json
-                    try:
-                        output = json.loads(output)
-                    except:
-                        pass
-                return output
-            if status in ("Failed", "Cancelled"):
-                raise RuntimeError(f"Function run {status}")
-        if time.time() - start > timeout_s:
-            raise TimeoutError(f"Timed out waiting for run output (last status: {last_status})")
-        time.sleep(poll_interval_s)
-
+# نموذج السؤال
 with st.form("rag_query_form"):
-    question = st.text_input("Your question")
+    question = st.text_input("Your question", key="question_input")
     top_k = st.number_input("How many chunks to retrieve", min_value=1, max_value=20, value=5, step=1)
-    submitted = st.form_submit_button("Ask")
+    submitted = st.form_submit_button("Ask", type="primary")
 
     if submitted and question.strip():
-        with st.spinner("Sending event and generating answer..."):
-            try:
-                event_id = send_rag_query_event(question.strip(), int(top_k))
-                if event_id:
-                    output = wait_for_run_output(event_id)
-                    answer = output.get("answer", "")
-                    sources = output.get("sources", [])
-                else:
-                    answer = "⚠️ لم يتم استلام event_id. تأكد من أن خادم Inngest يعمل."
-                    sources = []
-            except Exception as e:
-                answer = f"❌ Error: {e}"
-                sources = []
+        st.session_state.last_question = question
+        
+        with st.spinner("🔍 جاري البحث عن إجابة..."):
+            # الحصول على الإجابة مباشرة
+            answer_data = get_direct_answer(question.strip(), int(top_k))
+            
+            # حفظ في session state
+            st.session_state.answers.insert(0, {
+                "question": question,
+                "answer": answer_data.get("answer", "لا توجد إجابة"),
+                "sources": answer_data.get("sources", []),
+                "num_contexts": answer_data.get("num_contexts", top_k),
+                "timestamp": time.strftime("%H:%M:%S")
+            })
 
-        st.subheader("Answer")
-        st.write(answer or "(No answer)")
-        if sources:
-            st.caption("Sources")
-            for s in sources:
-                st.write(f"- {s}")
+# ============ عرض الإجابات ============
+
+if st.session_state.answers:
+    st.divider()
+    st.subheader("📝 الإجابات")
+    
+    for i, ans in enumerate(st.session_state.answers):
+        with st.container():
+            st.markdown(f"### ❓ {ans['question']}")
+            st.markdown(f"**📌 الإجابة:**")
+            st.markdown(f"> {ans['answer']}")
+            
+            if ans.get('sources'):
+                st.markdown(f"**📚 المصادر:**")
+                for src in ans['sources']:
+                    st.markdown(f"- {src}")
+            
+            if ans.get('num_contexts'):
+                st.caption(f"📊 عدد الأجزاء المسترجعة: {ans['num_contexts']}")
+            
+            st.caption(f"🕐 {ans['timestamp']}")
+            st.divider()
+
+# ============ حالة الخدمات ============
+with st.expander("ℹ️ System Status"):
+    try:
+        r = requests.get(f"{FASTAPI_URL}/health", timeout=2)
+        if r.status_code == 200:
+            st.success("✅ FastAPI: يعمل على المنفذ 8000")
+        else:
+            st.error("❌ FastAPI: لا يعمل")
+    except:
+        st.error("❌ FastAPI: لا يعمل")
+    
+    try:
+        r = requests.get("http://localhost:8288/health", timeout=2)
+        if r.status_code == 200:
+            st.success("✅ Inngest: يعمل على المنفذ 8288")
+        else:
+            st.error("❌ Inngest: لا يعمل")
+    except:
+        st.error("❌ Inngest: لا يعمل")
+    
+    st.info(f"📁 مسار التحميل: {Path('uploads').absolute()}")

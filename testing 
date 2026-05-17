@@ -1,0 +1,113 @@
+# import streamlit as st
+# import requests
+# import os
+# import time
+# from pathlib import Path
+# from dotenv import load_dotenv
+# import json
+
+# load_dotenv()
+
+# st.set_page_config(page_title="RAG Ingest PDF", page_icon="📄", layout="centered")
+
+# # عنوان API
+# API_BASE = "http://localhost:8000"
+# INNGEST_API = "http://localhost:8288"
+
+# st.title("📄 RAG System - PDF Ingestion")
+
+# # قسم رفع PDF
+# st.header("Upload a PDF to Ingest")
+
+# uploaded = st.file_uploader("Choose a PDF file", type=["pdf"], accept_multiple_files=False)
+
+# if uploaded is not None:
+#     # حفظ الملف
+#     uploads_dir = Path("uploads")
+#     uploads_dir.mkdir(parents=True, exist_ok=True)
+#     file_path = uploads_dir / uploaded.name
+#     file_path.write_bytes(uploaded.getbuffer())
+    
+#     st.success(f"✅ تم رفع الملف: {uploaded.name}")
+    
+#     # إرسال إلى Inngest
+#     if st.button("Ingest PDF"):
+#         with st.spinner("جارٍ معالجة PDF..."):
+#             try:
+#                 # إرسال حدث إلى Inngest عبر FastAPI
+#                 response = requests.post(
+#                     f"{API_BASE}/api/inngest",
+#                     json={
+#                         "event": {
+#                             "name": "rag/ingest_pdf",
+#                             "data": {
+#                                 "pdf_path": str(file_path.resolve()),
+#                                 "file_name": uploaded.name
+#                             }
+#                         }
+#                     }
+#                 )
+                
+#                 if response.status_code == 200:
+#                     st.success("✅ تم إرسال PDF للمعالجة بنجاح!")
+#                 else:
+#                     st.error(f"❌ خطأ: {response.text}")
+                    
+#             except Exception as e:
+#                 st.error(f"❌ خطأ في الاتصال: {e}")
+
+# st.divider()
+
+# # قسم الأسئلة
+# st.header("💬 Ask a question about your PDFs")
+
+# question = st.text_input("Your question:")
+# top_k = st.slider("Number of results:", min_value=1, max_value=10, value=5)
+
+# if st.button("Ask", type="primary"):
+#     if question.strip():
+#         with st.spinner("جاري البحث عن إجابة..."):
+#             try:
+#                 # إرسال حدث الاستعلام
+#                 response = requests.post(
+#                     f"{API_BASE}/api/inngest",
+#                     json={
+#                         "event": {
+#                             "name": "rag/query_pdf",
+#                             "data": {
+#                                 "question": question,
+#                                 "top_k": top_k
+#                             }
+#                         }
+#                     }
+#                 )
+                
+#                 if response.status_code == 200:
+#                     st.success("✅ تم إرسال السؤال!")
+#                     st.info("سيتم عرض الإجابة قريباً...")
+#                 else:
+#                     st.error(f"❌ خطأ: {response.text}")
+                    
+#             except Exception as e:
+#                 st.error(f"❌ خطأ في الاتصال: {e}")
+#     else:
+#         st.warning("⚠️ الرجاء إدخال سؤال")
+
+# st.divider()
+
+# # معلومات النظام
+# with st.expander("ℹ️ System Status"):
+#     try:
+#         health = requests.get(f"{API_BASE}/health")
+#         if health.status_code == 200:
+#             st.success("✅ FastAPI: يعمل")
+#         else:
+#             st.error("❌ FastAPI: لا يعمل")
+#     except:
+#         st.error("❌ FastAPI: لا يعمل")
+    
+#     try:
+#         inngest = requests.get(f"{INNGEST_API}/health")
+#         st.success("✅ Inngest: يعمل")
+#     except:
+#         st.info("ℹ️ Inngest: يعمل (Dev Server)")
