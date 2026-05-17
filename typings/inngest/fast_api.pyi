@@ -1,0 +1,3 @@
+from typing import Any, Callable, List
+
+def serve(app: Any, client: Any, functions: List[Callable[..., Any]]) -> None: ...

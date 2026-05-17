@@ -38,8 +38,8 @@ setenv PATH "$VIRTUAL_ENV:q/bin:$PATH:q"
 
 
 
-if ('RAGSYS' != "") then
-    setenv VIRTUAL_ENV_PROMPT 'RAGSYS'
+if ('ragsys' != "") then
+    setenv VIRTUAL_ENV_PROMPT 'ragsys'
 else
     setenv VIRTUAL_ENV_PROMPT "$VIRTUAL_ENV:t:q"
 endif

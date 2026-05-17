@@ -98,8 +98,8 @@ _OLD_VIRTUAL_PATH="$PATH"
 PATH="$VIRTUAL_ENV/bin:$PATH"
 export PATH
 
-if [ "xRAGSYS" != x ] ; then
-    VIRTUAL_ENV_PROMPT="RAGSYS"
+if [ "xragsys" != x ] ; then
+    VIRTUAL_ENV_PROMPT="ragsys"
 else
     VIRTUAL_ENV_PROMPT=$(basename "$VIRTUAL_ENV")
 fi

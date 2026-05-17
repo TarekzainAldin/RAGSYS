@@ -1,0 +1,8 @@
+{
+  "typeStubSearchPaths": ["typings"],
+  "executionEnvironments": [
+    {
+      "root": "."
+    }
+  ]
+}

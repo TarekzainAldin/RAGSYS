@@ -1,0 +1,10 @@
+Collecting inngest
+  Using cached inngest-0.0.1-py3-none-any.whl.metadata (1.0 kB)
+Requirement already satisfied: requests>=2.0.0 in ./.venv/lib/python3.8/site-packages (from inngest) (2.32.4)
+Requirement already satisfied: charset_normalizer<4,>=2 in ./.venv/lib/python3.8/site-packages (from requests>=2.0.0->inngest) (3.4.7)
+Requirement already satisfied: idna<4,>=2.5 in ./.venv/lib/python3.8/site-packages (from requests>=2.0.0->inngest) (3.15)
+Requirement already satisfied: urllib3<3,>=1.21.1 in ./.venv/lib/python3.8/site-packages (from requests>=2.0.0->inngest) (2.2.3)
+Requirement already satisfied: certifi>=2017.4.17 in ./.venv/lib/python3.8/site-packages (from requests>=2.0.0->inngest) (2026.4.22)
+Using cached inngest-0.0.1-py3-none-any.whl (2.6 kB)
+Installing collected packages: inngest
+Successfully installed inngest-0.0.1
