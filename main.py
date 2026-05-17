@@ -6,35 +6,37 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# 1. إنشاء عميل Inngest
 inngest_client = inngest.Inngest(
     app_id="rag_app",
     logger=logging.getLogger("uvicorn"),
-    is_production=False,
 )
 
-# 2. تعريف الدالة (يجب أن يكون هناك دالة بعد الديكوريتور مباشرة)
 @inngest_client.create_function(
-    fn_id="rag_ingest_pdf",           # ✅ تجنب استخدام النقطتين :
-    trigger=inngest.TriggerEvent(event="rag/ingest_pdf"),  # ✅ استخدم trigger وليس event
+    fn_id="rag_ingest_pdf",
+    trigger=inngest.TriggerEvent(event="rag/ingest_pdf")# type: ignore
 )
-async def ingest_pdf(ctx: inngest.Context) -> dict:   # ✅ هذه هي الدالة المطلوبة
-    """معالجة ملف PDF"""
-    data = ctx.event.data
-    print(f"📄 تم استلام PDF: {data}")
-    return {"status": "success", "data": data}
+def ingest_pdf(ctx):
+    # استخدم try/except لتجنب أي أخطاء
+    try:
+        data = ctx.event.data
+    except:
+        data = {}
+    print(f"📄 تم استلام: {data}")
+    return {"status": "success"}
 
-# 3. إنشاء تطبيق FastAPI
-app = FastAPI(title="RAG System")
+app = FastAPI()
 
-# 4. إضافة المسارات (routes)
 @app.get("/")
 def home():
-    return {"status": "ok", "message": "RAG API is running"}
+    return {"status": "ok"}
 
-@app.get("/health")
-def health():
-    return {"status": "healthy"}
-
-# 5. ربط Inngest مع FastAPI (تصحيح: functions= وليس functions:)
-inngest.fast_api.serve(app, inngest_client, functions=[ingest_pdf])
+@app.get("/about")
+def about():
+    """معلومات عن التطبيق والمطور"""
+    return {
+        "app_name": "RAG System",
+        "developer": "Tarek Zain Al-Din",
+        "version": "1.0.0",
+        "description": "نظام لمعالجة واستيعاب ملفات PDF باستخدام RAG"
+    }
+inngest.fast_api.serve(app, inngest_client, [ingest_pdf])
