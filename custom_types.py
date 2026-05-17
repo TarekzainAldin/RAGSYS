@@ -1,21 +1,16 @@
-from typing import Optional
-
 import pydantic
-
+from typing import Optional
 
 class RAGChunkAndSrc(pydantic.BaseModel):
     chunks: list[str]
-    source_id: Optional[str] = None
-
+    source_id: Optional[str] = None  # ✅ استخدام Optional[str]
 
 class RAGUpsertResult(pydantic.BaseModel):
     ingested: int
 
-
 class RAGSearchResult(pydantic.BaseModel):
     contexts: list[str]
     sources: list[str]
-
 
 class RAQQueryResult(pydantic.BaseModel):
     answer: str
